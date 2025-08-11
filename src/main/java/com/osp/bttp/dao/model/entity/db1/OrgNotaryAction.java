@@ -1,0 +1,206 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package com.osp.bttp.dao.model.entity.db1;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
+import java.io.Serializable;
+import java.util.Date;
+
+@Entity
+@Table(name = "ORG_NOTARY_ACTION")
+public class OrgNotaryAction implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+    @Id
+    @Basic(optional = false)
+    @Column(name = "ID")
+    @SequenceGenerator(name="ORG_NOTARY_ACTION_SEQ", sequenceName="ORG_NOTARY_ACTION_SEQ",allocationSize=1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "ORG_NOTARY_ACTION_SEQ")
+    private Long id;
+    @Column(name = "TYPE")
+    private Long type;
+    @Column(name = "NOTE")
+    private String note;
+    @Column(name = "ACTIVE")
+    private Long active;
+    @Size(max = 50)
+    @Column(name = "CREATED_BY")
+    private String createdBy;
+    @Column(name = "GEN_DATE")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date genDate;
+    @Size(max = 50)
+    @Column(name = "UPDATED_BY")
+    private String updatedBy;
+    @Column(name = "LAST_UPDATE")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastUpdate;
+    @Column(name = "DOCUMENT_ID")
+    private Long documentId;
+    @Column(name = "ORG_NOTARY_INFO_ID")
+    private Long orgNotaryInfoId;
+    @Column(name = "NOTARY_ID_OFFICE_CHIEF_OLD")
+    private Long notaryIdOfficeChiefOld;
+
+    public OrgNotaryAction() {
+    }
+
+    /*tất cả trừ id*/
+    public OrgNotaryAction formToBo(OrgNotaryAction form){
+        OrgNotaryAction bo = new OrgNotaryAction();
+        if (form.getType() != null && form.getType() != -1L){
+            bo.setType(form.getType());
+        }
+        if (form.getNote() != null && !"".equals(form.getNote())){
+            bo.setNote(form.getNote());
+        }
+        if (form.getActive() != null && form.getActive() != -1L){
+            bo.setActive(form.getActive());
+        }
+        if (form.getCreatedBy() != null && !"".equals(form.getCreatedBy())){
+            bo.setCreatedBy(form.getCreatedBy());
+        }
+        if (form.getGenDate() != null){
+            bo.setGenDate(form.getGenDate());
+        }
+        if (form.getUpdatedBy() != null && !"".equals(form.getUpdatedBy())){
+            bo.setUpdatedBy(form.getUpdatedBy());
+        }
+        if (form.getLastUpdate() != null){
+            bo.setLastUpdate(form.getLastUpdate());
+        }
+        if (form.getDocumentId() != null && form.getDocumentId() != -1L){
+            bo.setDocumentId(form.getDocumentId());
+        }
+        if (form.getOrgNotaryInfoId() != null && form.getOrgNotaryInfoId() != -1L){
+            bo.setOrgNotaryInfoId(form.getOrgNotaryInfoId());
+        }
+        if (form.getNotaryIdOfficeChiefOld() != null && form.getNotaryIdOfficeChiefOld() != -1L){
+            bo.setNotaryIdOfficeChiefOld(form.getNotaryIdOfficeChiefOld());
+        }
+
+        return bo;
+    }
+
+    public OrgNotaryAction(Long id) {
+        this.id = id;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getType() {
+        return type;
+    }
+
+    public void setType(Long type) {
+        this.type = type;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public Long getActive() {
+        return active;
+    }
+
+    public void setActive(Long active) {
+        this.active = active;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Date getGenDate() {
+        return genDate;
+    }
+
+    public void setGenDate(Date genDate) {
+        this.genDate = genDate;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(String updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public Date getLastUpdate() {
+        return lastUpdate;
+    }
+
+    public void setLastUpdate(Date lastUpdate) {
+        this.lastUpdate = lastUpdate;
+    }
+
+    public Long getDocumentId() {
+        return documentId;
+    }
+
+    public void setDocumentId(Long documentId) {
+        this.documentId = documentId;
+    }
+
+    public Long getOrgNotaryInfoId() {
+        return orgNotaryInfoId;
+    }
+
+    public void setOrgNotaryInfoId(Long orgNotaryInfoId) {
+        this.orgNotaryInfoId = orgNotaryInfoId;
+    }
+
+    public Long getNotaryIdOfficeChiefOld() {
+        return notaryIdOfficeChiefOld;
+    }
+
+    public void setNotaryIdOfficeChiefOld(Long notaryIdOfficeChiefOld) {
+        this.notaryIdOfficeChiefOld = notaryIdOfficeChiefOld;
+    }
+    
+    @Override
+    public int hashCode() {
+        int hash = 0;
+        hash += (id != null ? id.hashCode() : 0);
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        // TODO: Warning - this method won't work in the case the id fields are not set
+        if (!(object instanceof OrgNotaryAction)) {
+            return false;
+        }
+        OrgNotaryAction other = (OrgNotaryAction) object;
+        if ((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id))) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return "com.osp.model.OrgNotaryAction[ id=" + id + " ]";
+    }
+    
+}

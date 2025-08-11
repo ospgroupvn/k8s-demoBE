@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+	<Properties>
+		<Property name="ROOT_PATH_LOG">./logs/bttp_service</Property>
+        <Property name="LOGALL_DIR">${ROOT_PATH_LOG}/logs/</Property>
+        <Property name="LOG_DIR">${ROOT_PATH_LOG}/logs/</Property>
+        <Property name="ERR_DIR">${ROOT_PATH_LOG}/logs/</Property>
+        <Property name="DEBUG_DIR">${ROOT_PATH_LOG}/logs/</Property>
+        <Property name="INFO_DIR">${ROOT_PATH_LOG}/logs/</Property>
+        <!-- <Property name="INFO_DIR">${ROOT_PATH_LOG}/logs.info/</Property> -->
+        <Property name="OTHER_LOG_DIR">${ROOT_PATH_LOG}/logs.other/</Property>
+        
+        <!-- <Property name="FILE_NAME_COMMON">${sys:log4j.commonFileName}</Property> -->
+        <Property name="FILE_NAME_COMMON">bttp_service</Property>
+        <Property name="FILE_NAME_LOG_DEBUG">${FILE_NAME_COMMON}.debug.log</Property>
+        <Property name="FILE_NAME_LOG_INFO">${FILE_NAME_COMMON}.info.log</Property>
+        <Property name="FILE_NAME_LOG_ERR">${FILE_NAME_COMMON}.err</Property>
+        <Property name="FILE_NAME_LOG_OTHER">${FILE_NAME_COMMON}.other.log</Property>
+        <Property name="FILE_NAME_LOG_ALL">${FILE_NAME_COMMON}.log</Property>
+		
+		<!-- <Property name="APP_LOG_ROOT">/logs/api</Property> -->
+		<Property name="LOG_PATTERN_CONSOLE">%d{yyyy-MM-dd HH:mm:ss.SSS} [%-5p] %m%n</Property>
+		<!-- Pattern with highlight -->
+		<!-- <Property name="LOG_PATTERN">%highlight{${LOG_PATTERN_CONSOLE}}{STYLE=Logback}</Property> -->
+		<Property name="LOG_PATTERN_HIGHLIGHT">%highlight{${LOG_PATTERN_CONSOLE}}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=black, DEBUG=green bold, TRACE=blue}
+		</Property>
+		<!-- <Property name="LOG_PATTERN">${LOG_PATTERN_HIGHLIGHT}</Property> -->
+		<!-- <Property name="LOG_PATTERN">%d %p %C{1.} [%t] %m%n</Property> -->
+		<Property name="LOG_PATTERN">${LOG_PATTERN_CONSOLE}</Property>
+	</Properties>
+	<Appenders>
+		<!-- <Console name="Console" target="SYSTEM_OUT">
+			<PatternLayout pattern="${LOG_PATTERN}" />
+		</Console> -->
+		<Console name="Console" target="SYSTEM_OUT" follow="true">
+                <RegexFilter regex=".*Log4J2Logger.*, password=.*" onMatch="DENY" onMismatch="NEUTRAL"/>
+                <PatternLayout pattern="${LOG_PATTERN_CONSOLE}" />
+        </Console>
+
+		<RollingFile name="RollingFile" fileName="${LOG_DIR}/spring-boot.log"
+			filePattern="${LOG_DIR}/spring-boot-%d{yyyyMMdd}-%i.log">
+			<PatternLayout pattern="${LOG_PATTERN}" />
+			<Policies>
+				<!-- rollover on startup, daily and when the file reaches 10 MegaBytes -->
+				<OnStartupTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="10 MB" />
+				<TimeBasedTriggeringPolicy />
+			</Policies>
+			<DefaultRolloverStrategy max="1000" />
+		</RollingFile>
+
+		<RollingFile name="errorLog" fileName="${ERR_DIR}/${FILE_NAME_LOG_ERR}"
+			filePattern="${ERR_DIR}/${FILE_NAME_LOG_ERR}.%d{yyyyMMdd}-%i{2}.gz">
+			<LevelRangeFilter minLevel="FATAL" maxLevel="WARN"
+				onMatch="ACCEPT" onMismatch="DENY" /> <!-- FATAL -> ERROR -> WARN  -->
+			<PatternLayout pattern="${LOG_PATTERN}" />
+			<Policies>
+				<TimeBasedTriggeringPolicy interval="1" modulate="true" />
+				<SizeBasedTriggeringPolicy size="50MB" />
+			</Policies>
+			<!-- <DefaultRolloverStrategy max="50" /> -->
+			
+<!-- 			<CronTriggeringPolicy schedule="0 0 * * * ?"/>                                                                                               -->
+            <DefaultRolloverStrategy>
+				<Delete basePath="${ERR_DIR}" maxDepth="1">                                                                                        
+					<IfFileName glob="${FILE_NAME_LOG_ERR}.*" />                                                                               
+                	<IfLastModified age="90d" />
+              	</Delete>
+       		</DefaultRolloverStrategy>
+		</RollingFile>
+
+		<RollingFile name="infoLog" fileName="${INFO_DIR}/${FILE_NAME_LOG_INFO}"
+			filePattern="${INFO_DIR}/${FILE_NAME_LOG_INFO}.%d{yyyyMMdd}-%i{2}.gz">
+			<LevelRangeFilter minLevel="INFO" maxLevel="INFO"
+				onMatch="ACCEPT" onMismatch="DENY" />
+			<PatternLayout pattern="${LOG_PATTERN}" />
+			<Policies>
+				<TimeBasedTriggeringPolicy interval="1" modulate="true" />
+				<!-- <SizeBasedTriggeringPolicy size="50MB" /> -->
+			</Policies>
+			<!-- <DefaultRolloverStrategy max="50" /> -->
+			
+<!-- 			<CronTriggeringPolicy schedule="0 0 * * * ?"/>                                                                                               -->
+            <DefaultRolloverStrategy>
+				<Delete basePath="${INFO_DIR}" maxDepth="1">                                                                                        
+					<IfFileName glob="${FILE_NAME_LOG_INFO}.*" />                                                                               
+                	<IfLastModified age="90d" />
+              	</Delete>
+       		</DefaultRolloverStrategy>
+			
+		</RollingFile>
+		
+		<RollingFile name="allLog" fileName="${LOGALL_DIR}/${FILE_NAME_LOG_ALL}"
+			filePattern="${LOGALL_DIR}/${FILE_NAME_LOG_ALL}.%d{yyyyMMdd}.log">
+			<LevelRangeFilter minLevel="ERROR" maxLevel="INFO"
+							  onMatch="ACCEPT" onMismatch="DENY"/>
+			<RegexFilter regex=".*Log4J2Logger*,*.TransportService*, password=.*"
+				onMatch="DENY" onMismatch="NEUTRAL" />
+			<PatternLayout pattern="${LOG_PATTERN}" />
+			<Policies>
+				<TimeBasedTriggeringPolicy interval="1" modulate="true" />
+				<!-- <SizeBasedTriggeringPolicy size="100MB" /> -->
+			</Policies>
+			<!-- <DefaultRolloverStrategy max="1000" /> -->
+
+			<!-- <CronTriggeringPolicy schedule="0 0 * * * ?"/> -->
+			<DefaultRolloverStrategy>
+				<Delete basePath="${LOGALL_DIR}" maxDepth="1">
+					<IfFileName glob="${FILE_NAME_LOG_ALL}.*" />
+					<IfLastModified age="180d" />
+				</Delete>
+			</DefaultRolloverStrategy>
+		</RollingFile>
+		
+		
+	</Appenders>
+
+	<Loggers>
+		<!-- LOG everything at INFO level -->
+		<!-- <Root level="info">
+			<AppenderRef ref="Console" />
+			<AppenderRef ref="RollingFile" />
+		</Root> -->
+		
+		<!-- OFF -> FATAL -> ERROR -> WARN -> INFO -> DEBUG -> TRACE -> ALL-->
+        <Root level="all"> <!-- Logger run when other logger above set additivity = true -->
+                <!-- <AppenderRef ref="debugLog" level="debug" /> -->
+                <AppenderRef ref="errorLog" level="warn" />
+                <AppenderRef ref="infoLog" level="info" />
+                <AppenderRef ref="allLog" level="debug" />
+                <!-- <AppenderRef ref="RollingFile" level="error,info"/> -->
+                <appender-ref ref="Console" level="info"/>
+        </Root>
+
+		<!-- LOG "com.*" at TRACE level -->
+		<Logger name="com.*" level="debug" additivity="false">
+		</Logger>
+	</Loggers>
+
+</Configuration>

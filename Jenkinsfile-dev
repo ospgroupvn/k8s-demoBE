@@ -1,0 +1,54 @@
+def setupEnv = '''
+    export MAVEN_HOME=/usr/share/maven
+    export JAVA_HOME=/home/jenkins/java/jdk17
+    export PATH=$MAVEN_HOME/bin:$JAVA_HOME/bin:$PATH
+'''
+pipeline {
+    agent none
+    environment {
+        buildScript = "mvn clean package -DskipTests=true -Dspring.profiles.active=staging"
+    }
+    stages {
+        stage('pre-build') {
+            agent {
+                label 'bttp'
+            }
+            steps {
+                script {
+                    sh "${setupEnv}\n" + '''
+                        mvn --version
+                        java -version
+                        echo "Starting build process..."
+                        whoami
+                    '''
+                }
+            }
+        }
+        stage('build') {
+            agent {
+                label 'bttp'
+            }
+            steps {
+                script {
+                    sh "${setupEnv}\n${buildScript}"
+                }
+            }
+        }
+        stage('deploy') {
+            agent {
+                label 'bttp'
+            }
+            steps {
+                script {
+                    sh '''
+                        sudo systemctl stop bttpv2.service
+                        JAR_FILE=$(find target -name "bttp-0.0.1-SNAPSHOT.jar" -print -quit)
+                        sudo cp -f $JAR_FILE /app/bttpv2/bttpv2-service.jar
+                        sudo systemctl daemon-reload
+                        sudo systemctl restart bttpv2.service
+                    '''
+                }
+            }
+        }
+    }
+}
