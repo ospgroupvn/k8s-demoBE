@@ -7,7 +7,7 @@ on:
     branches: ["dev"]
 
 env:
-  REGISTRY: reg.ospgroup.vn
+  REGISTRY: dockerhub.ospgroup.vn
   IMAGE_NAME: demok8s/bttp-be
   JAVA_VERSION: "17"
   MAVEN_VERSION: "3.9.5"
