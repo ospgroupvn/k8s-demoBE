@@ -1,0 +1,230 @@
+name: CI - Build & Push Spring Boot BE Image
+
+on:
+  push:
+    branches: ["dev"]
+  pull_request:
+    branches: ["dev"]
+
+env:
+  REGISTRY: dockerhub.ospgroup.vn
+  IMAGE_NAME: demok8s/bttp-be
+  JAVA_VERSION: "17"
+  MAVEN_VERSION: "3.9.5"
+
+jobs:
+  build:
+    runs-on: self-hosted
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          # Fetch at least 1 commit to ensure git log works
+
+      - name: Set up environment variables
+        run: |
+          echo "IMAGE_TAG=${GITHUB_SHA:0:8}" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+          
+          # Safely get commit message with fallback
+          COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null || echo "Initial commit")
+          echo "COMMIT_MESSAGE=${COMMIT_MSG}" >> $GITHUB_ENV
+          
+          echo "✅ Environment variables set:"
+          echo "  - IMAGE_TAG: ${GITHUB_SHA:0:8}"
+          echo "  - BUILD_DATE: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "  - COMMIT_MESSAGE: ${COMMIT_MSG}"
+
+      - name: Pre-build cleanup
+        run: |
+          echo "🧹 Cleaning Docker system before build..."
+          docker system prune -af --volumes || echo "⚠️ Docker prune failed, continuing..."
+          
+          # Remove any existing images with same tags
+          echo "Removing existing images if they exist..."
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} 2>/dev/null || echo "Image ${IMAGE_TAG} not found, skipping..."
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v1 2>/dev/null || echo "Image v1 not found, skipping..."
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null || echo "Image latest not found, skipping..."
+          
+          echo "✅ Pre-build cleanup completed"
+
+      - name: Validate Dockerfile and dependencies
+        run: |
+          echo "🔍 Validating build files..."
+          test -f Dockerfile || (echo "❌ Dockerfile not found" && exit 1)
+          test -f pom.xml || (echo "❌ pom.xml not found" && exit 1)
+          test -d src || (echo "❌ src directory not found" && exit 1)
+          echo "✅ All required files present"
+
+      - name: Debug Harbor credentials
+        run: |
+          echo "🔍 Debugging Harbor credentials..."
+          echo "Registry: ${{ env.REGISTRY }}"
+          echo "Username length: $(echo '${{ secrets.HARBOR_USERNAME }}' | wc -c)"
+          echo "Password length: $(echo '${{ secrets.HARBOR_PASSWORD }}' | wc -c)"
+          echo "Username (masked): $(echo '${{ secrets.HARBOR_USERNAME }}' | sed 's/./*/g')"
+
+      - name: Login to Harbor Registry
+        run: |
+          echo "🔐 Logging into Harbor registry..."
+          echo "Registry: ${{ env.REGISTRY }}"
+          echo "Username: ${{ secrets.HARBOR_USERNAME }}"
+          
+          # Login to Harbor
+          if echo "${{ secrets.HARBOR_PASSWORD }}" | docker login ${{ env.REGISTRY }} -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin; then
+            echo "✅ Successfully logged into Harbor"
+          else
+            echo "❌ Failed to login to Harbor"
+            echo "Please verify HARBOR_USERNAME secret is: robot\$demok8s+demok8s"
+            echo "Current username length: $(echo '${{ secrets.HARBOR_USERNAME }}' | wc -c)"
+            echo "Expected length should be: 22"
+            exit 1
+          fi
+
+      - name: Build Spring Boot Docker image
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          echo "🔨 Building Spring Boot application..."
+          echo "📋 Build Info:"
+          echo "  - Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          echo "  - Java Version: ${{ env.JAVA_VERSION }}"
+          echo "  - Maven Version: ${{ env.MAVEN_VERSION }}"
+          echo "  - Build Date: ${BUILD_DATE}"
+          echo "  - Commit: ${GITHUB_SHA:0:8}"
+          
+          docker build \
+            --progress=plain \
+            --build-arg JAVA_VERSION=${{ env.JAVA_VERSION }} \
+            --build-arg BUILD_DATE="${BUILD_DATE}" \
+            --build-arg COMMIT_SHA="${GITHUB_SHA:0:8}" \
+            --label "org.opencontainers.image.title=BTTP Backend" \
+            --label "org.opencontainers.image.description=Spring Boot Backend Application" \
+            --label "org.opencontainers.image.version=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.created=${BUILD_DATE}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v1 \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            .
+          
+          echo "✅ Docker image built successfully"
+
+      - name: Verify built image
+        run: |
+          echo "🔍 Verifying built image..."
+          docker images | grep ${{ env.IMAGE_NAME }}
+          docker inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} --format='{{.Config.Labels}}'
+
+      - name: Push images to Harbor
+        run: |
+          echo "📤 Pushing images to Harbor registry..."
+          
+          # Push commit-specific tag
+          echo "Pushing ${IMAGE_TAG} tag..."
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
+          
+          # Push v1 tag (stable)
+          echo "Pushing v1 tag..."
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v1
+          
+          # Push latest tag
+          echo "Pushing latest tag..."
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          
+          echo "✅ All images pushed successfully"
+
+      - name: Generate build summary
+        if: always()
+        run: |
+          echo "## 📋 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏷️ Image Tag | \`${IMAGE_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Registry | \`${{ env.REGISTRY }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🖼️ Image Name | \`${{ env.IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🕒 Build Date | \`${BUILD_DATE}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📝 Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌿 Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ☕ Java Version | \`${{ env.JAVA_VERSION }}\` |" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Available Images:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v1\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Send success notification to Lark
+        if: success()
+        run: |
+          echo "� Seneding success notification to Lark..."
+          curl -X POST "https://open.larksuite.com/open-apis/bot/v2/hook/1e12ab47-ba09-4994-88a4-99c7f416bf83" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "msg_type": "interactive",
+              "card": {
+                "elements": [
+                  {
+                    "tag": "div",
+                    "text": {
+                      "content": "🎉 **BUILD SUCCESS** - Spring Boot Backend\n\n📦 **Image**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}`\n🌿 **Branch**: `${{ github.ref_name }}`\n📝 **Commit**: `${GITHUB_SHA:0:8}`\n⏰ **Time**: `${BUILD_DATE}`\n🔗 **Workflow**: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                      "tag": "lark_md"
+                    }
+                  }
+                ],
+                "header": {
+                  "title": {
+                    "content": "✅ CI/CD Pipeline Success",
+                    "tag": "plain_text"
+                  },
+                  "template": "green"
+                }
+              }
+            }'
+
+      - name: Send failure notification to Lark
+        if: failure()
+        run: |
+          echo "📢 Sending failure notification to Lark..."
+          curl -X POST "https://open.larksuite.com/open-apis/bot/v2/hook/1e12ab47-ba09-4994-88a4-99c7f416bf83" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "msg_type": "interactive",
+              "card": {
+                "elements": [
+                  {
+                    "tag": "div",
+                    "text": {
+                      "content": "❌ **BUILD FAILED** - Spring Boot Backend\n\n🌿 **Branch**: `${{ github.ref_name }}`\n📝 **Commit**: `${GITHUB_SHA:0:8}`\n⏰ **Time**: `${BUILD_DATE}`\n🔗 **Workflow**: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n🔍 **Action Required**: Please check the workflow logs for details.",
+                      "tag": "lark_md"
+                    }
+                  }
+                ],
+                "header": {
+                  "title": {
+                    "content": "🚨 CI/CD Pipeline Failed",
+                    "tag": "plain_text"
+                  },
+                  "template": "red"
+                }
+              }
+            }'
+
+      - name: Post-build cleanup
+        if: always()
+        run: |
+          echo "🗑️ Cleaning up after build..."
+          
+          # Remove local images to save space
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} || true
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v1 || true
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
+          
+          # Clean Docker system
+          docker system prune -af --volumes || true
+          
+          echo "✅ Cleanup completed"
